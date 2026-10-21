@@ -319,7 +319,7 @@ Say in the video that the data is pretend and the warning signs are a prepared r
 | What could go wrong | What we do |
 |---|---|
 | Not enough time | Base first. If the backup feature isn't working by 5:00, ship the base and mention backups as "next step" on the slides. |
-| Gemini busy or out of free requests | The agent falls back to a rule-based run of the same tools (the screen says so). Press "Ask AI agent" again to retry Gemini. |
+| Gemini busy or out of free requests | The agent falls back to a rule-based run of the same tools (no Gemini badge is shown; the server log has the error). Press "Ask AI agent" again to retry Gemini. |
 | Teammates can't explain it | Spend the first 30 minutes on sections 3, 4 and 6 together. Everyone practises section 13 at the end. |
 | Demo breaks while recording | Use the Reset button; record in short clips and join them. |
 | Someone commits the API key | Key only in `backend/.env`; check `git status` before every push. |

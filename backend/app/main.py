@@ -362,6 +362,6 @@ def run_agent(body: AgentAsk):
     result = agent.run(_agent_tools(run), TRIP["traveller"], body.message.strip(),
                        on_restart=lambda: run.update(recommended=None, messages=[]))
     state["agent"] = {**result, **run, "message": body.message.strip()}
-    _log(f"AI agent ({result['source']}): {len(result['steps'])} tool call(s), "
+    _log(f"AI agent: {len(result['steps'])} tool call(s), "
          f"recommends plan {run['recommended'] or '-'}.")
     return _view()

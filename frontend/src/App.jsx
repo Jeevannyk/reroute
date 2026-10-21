@@ -440,7 +440,7 @@ function AgentPanel() {
     <section className="panel">
       <div className="panel-head">
         <h2><Icon name="terminal" size={15} className="blue" /> AI agent</h2>
-        {a && <span className="badge green">{a.source.startsWith('rule-based') ? 'Rule-based fallback' : `Gemini · ${a.source}`}</span>}
+        {a && !a.source.startsWith('rule-based') && <span className="badge green">Gemini · {a.source}</span>}
       </div>
       <p className="muted-text">The agent picks which tools to call (domino check, plan search, what-ifs, rules) and drafts messages.
         Prices and times always come from our code.</p>
@@ -454,7 +454,6 @@ function AgentPanel() {
       </div>
       {a && (
         <>
-          {a.note && <p className="muted-text">{a.note}</p>}
           <ol className="steps">
             {a.steps.map((st, i) => <li key={i}><code>{st.tool}</code> {st.summary}</li>)}
           </ol>
