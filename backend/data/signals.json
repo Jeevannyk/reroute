@@ -1,0 +1,12 @@
+{
+  "_note": "A prepared replay of warning signs for flight F1. Weights are added in log-odds (see holds.chance).",
+  "target": "F1",
+  "base_chance": 0.05,
+  "signals": [
+    {"at": "D1T17:20", "text": "Incoming plane fails to land at Mangaluru and climbs again (go-around)", "weight": 1.5},
+    {"at": "D1T17:28", "text": "Same plane goes around a second time", "weight": 1.0},
+    {"at": "D1T17:40", "text": "Plane circling, waiting to land", "weight": 0.8},
+    {"at": "D1T17:50", "text": "Mangaluru airport weather report: heavy rain", "weight": 0.7}
+  ],
+  "false_alarm": {"at": "D1T18:05", "text": "Incoming plane lands safely"}
+}
