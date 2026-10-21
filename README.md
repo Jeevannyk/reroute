@@ -1,8 +1,29 @@
-# Reroute
+<div align="center">
+  <img src="assets/reroute-banner.svg" alt="Animated Reroute banner: the flight is cancelled, the bookings after it turn red, and Reroute recovers the trip on a backup train it held early" width="100%" />
 
-**An AI agent that fixes the whole trip when one booking breaks, and starts fixing it before the airline says anything.**
+  <h1>Reroute</h1>
 
-DevHost 2026 · Problem Statement **PS 4.1: AI Agent for Travel Disruption Recovery** · Sahyadri College of Engineering & Management, Mangaluru
+  <p><strong>An AI agent that fixes the whole trip when one booking breaks,<br/>and starts fixing it before the airline says anything.</strong></p>
+
+  <p>DevHost 2026 · Problem Statement <b>PS 4.1</b>: AI Agent for Travel Disruption Recovery<br/>Sahyadri College of Engineering &amp; Management, Mangaluru</p>
+
+  <h3>Tech stack</h3>
+
+  <img src="https://skillicons.dev/icons?i=py,fastapi,react,vite,js,css,nodejs,git,github&theme=dark" alt="Python, FastAPI, React, Vite, JavaScript, CSS, Node.js, Git, GitHub" />
+  <br/><br/>
+  <img src="https://img.shields.io/badge/Python%203.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.10+" />
+  <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/Uvicorn-2A2E3A?style=for-the-badge" alt="Uvicorn" />
+  <img src="https://img.shields.io/badge/Pydantic-E92063?style=for-the-badge&logo=pydantic&logoColor=white" alt="Pydantic" />
+  <br/>
+  <img src="https://img.shields.io/badge/React%2019-149ECA?style=for-the-badge&logo=react&logoColor=white" alt="React 19" />
+  <img src="https://img.shields.io/badge/Vite%206-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite 6" />
+  <img src="https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black" alt="JavaScript" />
+  <img src="https://img.shields.io/badge/Node.js%2018%2B-5FA04E?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node.js 18+" />
+  <br/>
+  <img src="https://img.shields.io/badge/Google%20Gemini-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white" alt="Google Gemini" />
+  <img src="https://img.shields.io/badge/Pytest-0A9EDC?style=for-the-badge&logo=pytest&logoColor=white" alt="Pytest" />
+</div>
 
 ---
 
@@ -25,7 +46,7 @@ DevHost 2026 · Problem Statement **PS 4.1: AI Agent for Travel Disruption Recov
 
 ## The problem
 
-A trip is a chain. Meera flies from Mangaluru to Bengaluru, takes a cab to a hotel, catches a train to Mysuru in the morning and has a paid palace tour at 10:30.
+A trip is a chain. Meera flies to a connecting city, takes a cab to a hotel, catches a train to her destination in the morning and has a paid tour at 10:30.
 
 When her flight is cancelled, the flight is only the first thing to break:
 
@@ -161,7 +182,7 @@ Open **http://localhost:5173**. The dev server forwards `/api` to the backend on
 About two minutes. Press **Reset Replay** (top right) before you start; the simulated clock should read `D1 17:00`.
 
 1. **Trip.** Meera's five bookings, all green. The activity feed shows the backup rule waiting: `5% × ₹1,600 = ₹80 ≤ ₹100 → wait`.
-2. **Risk → Play sign.** The incoming plane fails to land and the chance rises from 5% to 19%. The airline board still says **On Time**. The rule box flips to `19% × ₹1,600 = ₹305 > ₹100 → hold` and a seat on the 21:20 overnight train to Mysuru is held. Keep playing signs: 39%, 59%, 74%.
+2. **Risk → Play sign.** The incoming plane fails to land and the chance rises from 5% to 19%. The airline board still says **On Time**. The rule box flips to `19% × ₹1,600 = ₹305 > ₹100 → hold` and a seat on the 21:20 overnight train to the destination is held. Keep playing signs: 39%, 59%, 74%.
 3. **Backups.** The card shows the held seat: ₹0 paid, ₹0 if cancelled before 20:20, at most ₹100 after.
 4. **Simulator → Cancel flight → Run scenario.** The board says **Cancelled**. The cab, hotel, train and tour turn red, each with a reason. On **Plans**, Plan A uses the held seat and breaks no rule. Without the hold, that seat is sold out and every plan breaks a rule.
 5. **Plans → Ask AI agent.** Watch the tool calls, the recommendation (AI pick) and the drafted messages. Then type *"I can only spend ₹2,000 extra"* and ask again: the rules change and the plans re-sort.
