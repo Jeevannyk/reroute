@@ -142,9 +142,7 @@ input { font: inherit; }
 .big-cap { color: var(--mute); }
 .meter { position: relative; height: 10px; background: #eceef2; border-radius: 6px; overflow: hidden; }
 .meter .fill { height: 100%; background: linear-gradient(90deg, #f59e0b, #dc2626); transition: width .9s cubic-bezier(.2,.8,.2,1); border-radius: 6px; }
-.meter .threshold { position: absolute; top: 0; bottom: 0; width: 2px; background: #1b2333; opacity: .55; }
 .meter-labels { display: flex; justify-content: space-between; font: 400 10px var(--mono); color: var(--mute); margin-top: 5px; }
-.meter-labels .th { color: #b45309; }
 .risk-note { margin-top: 14px; padding: 9px 12px; border-radius: 7px; background: #f3f5f8; color: var(--mute); }
 .risk-note.hot { background: var(--red-bg); color: #b42318; }
 .live { font: 400 11px var(--mono); color: #137a3a; display: inline-flex; align-items: center; gap: 7px; }
@@ -236,6 +234,17 @@ input { font: inherit; }
 .actions { margin-top: 12px; display: flex; flex-direction: column; gap: 7px; }
 .actions li { display: flex; align-items: center; gap: 9px; animation: slideIn .4s ease both; }
 .explain { margin-top: 12px; background: #f6f7fb; border: 1px solid var(--line); border-radius: 7px; padding: 8px 11px; font-size: 12.5px; line-height: 1.5; min-height: 38px; }
+.pick { font: 600 10px var(--mono); background: #7c3aed; color: #fff; padding: 2px 8px; border-radius: 10px; }
+
+/* ───── AI agent & rules form ───── */
+.ask { display: flex; gap: 8px; margin-top: 12px; }
+.ask input, .rule-form input { padding: 6px 9px; border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink); }
+.ask input { flex: 1; min-width: 0; }
+.steps { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; line-height: 1.45; }
+.steps code { background: var(--blue-bg); color: var(--blue); padding: 1px 5px; border-radius: 4px; }
+.rule-form { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.rule-form label { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rule-form input[type=number] { width: 100px; }
 .analyzer { background: #fff; border: 1px solid var(--blue-line); border-radius: 11px; padding: 16px 18px; animation: slideIn .4s ease both; }
 .an-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
 .an-head small { display: block; margin-top: 2px; }

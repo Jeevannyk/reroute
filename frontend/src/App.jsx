@@ -20,7 +20,9 @@ const AXIS_START = 16 * 60
 const AXIS_END = 1440 + 13 * 60
 const pos = (m) => (Math.min(Math.max(m, AXIS_START), AXIS_END) - AXIS_START) / (AXIS_END - AXIS_START) * 100
 
-const TRIGGER = 0.35 // backup hedge trigger threshold
+// The backup seat Reroute holds, Meera kept, or the applied plan rides on
+const activeBackup = (s) => s.holds.find((h) => ['held', 'kept', 'used'].includes(h.status))
+const riskHot = (s) => !!activeBackup(s) || s.board !== 'On Time'
 
 const ANALYZE_STEPS = [
   'Detecting affected segments',
@@ -53,8 +55,8 @@ function logTag(t) {
   if (/^\[/.test(t)) return 'SYSTEM'
   if (/Backup rule|%\s*×/.test(t)) return 'PROBABILITY'
   if (/auto-cancel/i.test(t)) return 'RESOLVE'
-  if (/applied/i.test(t)) return 'AUTO-ACTION'
-  if (/(kept|cancelled) the backup|Meera/i.test(t)) return 'POLICY'
+  if (/^Plan \w+ applied/.test(t)) return 'AUTO-ACTION'
+  if (/(kept|cancelled) the backup|Meera|no longer applied/i.test(t)) return 'POLICY'
   if (/Warning sign/i.test(t)) return 'WARNING'
   if (/delayed|Domino|cancelled/i.test(t)) return 'TRIGGER'
   if (/Incoming|telemetry|Chance back|lands/i.test(t)) return 'TELEMETRY'
@@ -181,7 +183,6 @@ const useR = () => useContext(Ctx)
 
 function RerouteProvider({ children }) {
   const [s, setS] = useState(null)
-  const [explanation, setExplanation] = useState(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState('')
   const [phase, setPhase] = useState('idle')       // idle | analyzing | revealing
@@ -221,17 +222,16 @@ function RerouteProvider({ children }) {
 
   async function disrupt(body, key) {
     const my = ++token.current
-    setError(''); setExplanation(null); setBusy(key)
+    setError(''); setBusy(key)
     setPhase('analyzing'); setScanning(false); setRevealed(0)
     go('/plans')
     const t0 = Date.now()
     try {
       const next = await api('/disrupt', body)
-      const exp = await api('/explain').catch(() => null)
       const wait = ANALYZE_STEPS.length * STEP_MS + 450 - (Date.now() - t0)
       if (wait > 0) await sleep(wait)
       if (token.current !== my) return
-      setS(next); setExplanation(exp); setPhase('revealing')
+      setS(next); setPhase('revealing')
       for (let i = 1; i <= next.plans.length; i++) {
         setScanning(true)
         await sleep(REVEAL_MS)
@@ -257,7 +257,7 @@ function RerouteProvider({ children }) {
 
   async function reset() {
     token.current++
-    setPhase('idle'); setScanning(false); setRevealed(999); setExplanation(null)
+    setPhase('idle'); setScanning(false); setRevealed(999)
     setBusy('reset')
     const r = await run('/reset', {}, 700)
     setBusy('')
@@ -268,7 +268,7 @@ function RerouteProvider({ children }) {
   useEffect(() => { load() }, [])
 
   const value = {
-    s, explanation, error, busy, phase, revealed, scanning, toasts,
+    s, error, busy, phase, revealed, scanning, toasts,
     locked: phase !== 'idle' || !!busy,
     clearError: () => setError(''),
     load, act, disrupt, applyPlan, reset,
@@ -360,18 +360,35 @@ function RulesPanel() {
         <span className="badge green">4 Active Policy Caps</span>
       </div>
       <div className="rule"><Icon name="clock" size={16} className="blue" />
-        <div>Reach {rules.must_arrive.place} by <code className="red">{fmt(toMin(rules.must_arrive.by))}</code>
-          <small>Hard constraint · {rules.must_arrive.place} Palace Tour booking</small></div></div>
+        <div>Reach {rules.goal} by <code className="red">{fmt(toMin(rules.reach_tour_by))}</code>
+          <small>Hard constraint · {rules.goal} Palace Tour booking</small></div></div>
       <div className="rule"><Icon name="wallet" size={16} className="blue" />
         <div>Spend at most <code>{rupees(rules.extra_spend_cap)}</code> extra
           <small>Out-of-pocket tolerance buffer</small></div></div>
       <div className="rule"><Icon name="shield" size={16} className="blue" />
-        <div>No road travel after <code>{rules.no_road_after}</code>
+        <div>{rules.allow_night_road ? 'Road travel allowed' : 'No road travel'} after <code>{rules.no_road_after}</code>
           <small>Western Ghats hazard prevention policy</small></div></div>
       <div className="rule"><Icon name="layers" size={16} className="blue" />
         <div>Backup Hedge: max <code>{rupees(rules.max_undo_cost)}</code> cancellation risk
           <small>Pooled protection cap: {rupees(rules.hold_budget)} total reserve</small></div></div>
+      <RulesForm key={JSON.stringify(rules)} rules={rules} />
     </section>
+  )
+}
+
+function RulesForm({ rules }) {
+  const { busy, locked, act } = useR()
+  const [cap, setCap] = useState(rules.extra_spend_cap)
+  const [by, setBy] = useState(rules.reach_tour_by.slice(-5))
+  const [night, setNight] = useState(rules.allow_night_road)
+  const save = () => act('rules', '/rules', { extra_spend_cap: Number(cap), reach_tour_by: by, allow_night_road: night }, 'Rules saved')
+  return (
+    <div className="rule-form">
+      <label>Spend at most ₹ <input type="number" min="0" step="500" value={cap} onChange={(e) => setCap(e.target.value)} /> extra</label>
+      <label>Be at the palace tour by <input type="time" value={by} onChange={(e) => setBy(e.target.value)} /> tomorrow</label>
+      <label><input type="checkbox" checked={night} onChange={(e) => setNight(e.target.checked)} /> Allow road travel after {rules.no_road_after}</label>
+      <div><Btn className="soft" loading={busy === 'rules'} disabled={locked} onClick={save}>Save rules</Btn></div>
+    </div>
   )
 }
 
@@ -383,7 +400,7 @@ function actionIcon(a) {
   return ['dot', 'gray']
 }
 
-function PlanCard({ plan, explanation }) {
+function PlanCard({ plan }) {
   const { s, busy, locked, applyPlan } = useR()
   const applied = s.applied?.id === plan.id
   const applying = busy === 'apply' + plan.id
@@ -393,7 +410,8 @@ function PlanCard({ plan, explanation }) {
       {applied && <span className="applied-badge"><Icon name="check" size={11} /> CURRENTLY APPLIED</span>}
       <div className="plan-top">
         <div>
-          <h3>Plan {plan.id}: {plan.title} <code className="score">Score {plan.score}</code></h3>
+          <h3>Plan {plan.id}: {plan.title} <code className="score">Score {plan.score}</code>
+            {s.agent?.recommended === plan.id && <span className="pick">AI pick</span>}</h3>
           <div className="plan-meta">
             Arrive Mysuru <code>{fmt(plan.arrival)}</code> · Extra cost <b>{rupees(plan.extra_cost)}</b> · {plan.changes} changes
           </div>
@@ -409,8 +427,46 @@ function PlanCard({ plan, explanation }) {
           return <li key={a} style={{ animationDelay: 120 + i * 90 + 'ms' }}><Icon name={ic} size={15} className={tone} /> {a}</li>
         })}
       </ul>
-      {explanation && <p className="explain"><i><Typed text={explanation.text} /></i> <small>({explanation.source})</small></p>}
     </div>
+  )
+}
+
+function AgentPanel() {
+  const { s, busy, locked, act } = useR()
+  const [message, setMessage] = useState('')
+  const a = s.agent
+  const working = busy === 'agent'
+  return (
+    <section className="panel">
+      <div className="panel-head">
+        <h2><Icon name="terminal" size={15} className="blue" /> AI agent</h2>
+        {a && <span className="badge green">{a.source.startsWith('rule-based') ? 'Rule-based fallback' : `Gemini · ${a.source}`}</span>}
+      </div>
+      <p className="muted-text">The agent picks which tools to call (domino check, plan search, what-ifs, rules) and drafts messages.
+        Prices and times always come from our code.</p>
+      <div className="ask">
+        <input value={message} onChange={(e) => setMessage(e.target.value)} maxLength={300} disabled={locked}
+          placeholder="Optional: e.g. I can only spend ₹2,000 extra" aria-label="Message to the AI agent" />
+        <Btn className="primary" loading={working} disabled={locked}
+          onClick={() => act('agent', '/agent', { message }, 'AI agent finished', 0)}>
+          {working ? 'Agent working…' : 'Ask AI agent'}
+        </Btn>
+      </div>
+      {a && (
+        <>
+          {a.note && <p className="muted-text">{a.note}</p>}
+          <ol className="steps">
+            {a.steps.map((st, i) => <li key={i}><code>{st.tool}</code> {st.summary}</li>)}
+          </ol>
+          <p className="explain"><Typed text={a.reply} /></p>
+          {a.messages.length > 0 && (
+            <ul className="steps">
+              {a.messages.map((m, i) => <li key={i}><b>Draft to {m.to}:</b> {m.text}</li>)}
+            </ul>
+          )}
+        </>
+      )}
+    </section>
   )
 }
 
@@ -452,12 +508,18 @@ function BackupCard({ hold }) {
   const { s, locked, busy, act } = useR()
   const cost = hold.cost ?? hold.price
   if (hold.status === 'held') {
+    const flightAt = fmt(toMin(s.trip.bookings.find((b) => b.id === hold.target).start)).slice(3)
+    const hit = s.disruption?.booking_id === hold.target ? s.disruption : null
     return (
       <div className="backup held">
         <div className="backup-title"><Icon name="layers" size={15} /> <b>{hold.name}</b><span className="chip blue">HELD</span></div>
         <p>
-          Your 18:30 flight will probably be cancelled (<b>{pct(s.chance)}</b> chance). We are holding a seat for you
-          on this route. You have paid ₹0. If you cancel, you lose at most <b>{rupees(hold.cancel_fee)}</b>.
+          {!hit ? <>Your {flightAt} flight may be cancelled (<b>{pct(s.chance)}</b> chance). We are holding a seat for you on this route.</>
+            : hit.type === 'cancel' ? <>Your {flightAt} flight was cancelled. Your backup seat on this route is ready: pick the plan that uses it.</>
+            : <>Your {flightAt} flight is now {s.board.toLowerCase()}. We are still holding a seat for you on this route.</>}
+          {' '}You have paid ₹0. {hold.free_cancel_until != null
+            ? <>Cancel before {fmt(hold.free_cancel_until).slice(3)} and you lose ₹0; after that, at most <b>{rupees(hold.cancel_fee)}</b>.</>
+            : <>If you cancel, you lose at most <b>{rupees(hold.cancel_fee)}</b>.</>}
         </p>
         <div className="buttons">
           <Btn className="primary" disabled={locked} loading={busy === 'keep' + hold.id}
@@ -510,13 +572,13 @@ function TripPage() {
   return (
     <>
       <div className="kpis">
-        <Kpi icon="clock" tone="blue" label="Arrival deadline" sub={`Reach ${rules.must_arrive.place}`}>
-          <code>{fmt(toMin(rules.must_arrive.by))}</code>
+        <Kpi icon="clock" tone="blue" label="Arrival deadline" sub={`Reach ${rules.goal}`}>
+          <code>{fmt(toMin(rules.reach_tour_by))}</code>
         </Kpi>
         <Kpi icon="wallet" tone="green" label="Extra spend" sub={`of ${rupees(rules.extra_spend_cap)} cap`}
           bar={(spend / rules.extra_spend_cap) * 100}>{rupees(spend)}</Kpi>
-        <Kpi icon="activity" tone={s.chance >= TRIGGER ? 'red' : 'amber'} label="Flight F1 failure risk"
-          sub={s.chance >= 1 ? 'Airline: Cancelled' : 'Airline: On Time'} bar={s.chance * 100}>{chanceNow}%</Kpi>
+        <Kpi icon="activity" tone={riskHot(s) ? 'red' : 'amber'} label="Flight F1 failure risk"
+          sub={`Airline: ${s.board}`} bar={s.chance * 100}>{chanceNow}%</Kpi>
         <Kpi icon="shield" tone="blue" label="Backups held" sub={`${s.holds.length} reservation${s.holds.length === 1 ? '' : 's'} total`}>{held}</Kpi>
       </div>
 
@@ -535,6 +597,8 @@ function TripPage() {
                 <b>Plan {appliedPlan.id}: {appliedPlan.title}</b>
                 <div className="plan-meta">Arrive Mysuru <code>{fmt(appliedPlan.arrival)}</code> · Extra cost <b>{rupees(appliedPlan.extra_cost)}</b> · {appliedPlan.changes} changes</div>
               </div>
+            ) : s.disruption ? (
+              <p className="muted-text">{s.plans.length ? 'Disruption detected — choose a plan on the Plans page.' : 'Disruption detected — nothing to re-plan, refund due.'}</p>
             ) : (
               <p className="muted-text">Running on the original itinerary. Inject a disruption in the simulator to see recovery plans.</p>
             )}
@@ -560,7 +624,7 @@ function TripPage() {
 }
 
 function PlansPage() {
-  const { s, explanation, phase, revealed, scanning } = useR()
+  const { s, phase, revealed, scanning } = useR()
   const analyzing = phase === 'analyzing'
   const shown = analyzing ? [] : s.plans.slice(0, revealed)
   if (!analyzing && s.plans.length === 0) {
@@ -579,7 +643,8 @@ function PlansPage() {
         <span>Ranked by score (lower score = less operational disruption)</span>
       </div>
       {analyzing && <Analyzer />}
-      {shown.map((p, i) => <PlanCard key={p.id} plan={p} explanation={i === 0 ? explanation : null} />)}
+      {!analyzing && s.disruption && <AgentPanel />}
+      {shown.map((p) => <PlanCard key={p.id} plan={p} />)}
       {scanning && <Skeleton n={revealed + 1} total={s.plans.length} />}
     </div>
   )
@@ -588,14 +653,15 @@ function PlansPage() {
 function RiskPage() {
   const { s, busy, locked, act } = useR()
   const chanceNow = Math.round(useCount(s.chance * 100))
-  const failed = s.chance >= 1
-  const hot = s.chance >= TRIGGER
+  const onTime = s.board === 'On Time'
+  const hot = riskHot(s)
+  const backup = activeBackup(s)
   return (
     <div className="cols2 even">
       <section className="panel">
         <div className="panel-head">
           <h2><Icon name="activity" size={15} className="amber" /> Failure chance</h2>
-          <span className={'badge ' + (failed ? 'red' : 'green')}><i className="bdot" /> Airline: {failed ? 'Cancelled' : 'On Time'}</span>
+          <span className={'badge ' + (onTime ? 'green' : 'red')}><i className="bdot" /> Airline: {s.board}</span>
         </div>
         <div className="big-risk">
           <span className={'big-num' + (hot ? ' hot' : '')}>{chanceNow}<small>%</small></span>
@@ -603,11 +669,13 @@ function RiskPage() {
         </div>
         <div className="meter">
           <div className="fill" style={{ width: pct(s.chance) }} />
-          <i className="threshold" style={{ left: TRIGGER * 100 + '%' }} />
         </div>
-        <div className="meter-labels"><span>0% baseline</span><span className="th">35% trigger threshold</span><span>100%</span></div>
-        <p className={'risk-note ' + (hot ? 'hot' : '')}>
-          {hot ? 'Above the trigger threshold. The backup hedge is active.' : 'Below the trigger threshold. The engine is monitoring.'}
+        <div className="meter-labels"><span>0%</span><span>100%</span></div>
+        <p className={'risk-note ' + (backup ? 'hot' : '')}>
+          Backup rule (chance × money lost if we wait vs worst-case cancel cost): {s.rule.maths
+            ? <>{s.rule.maths} → <b>{s.rule.decision}</b>.</>
+            : 'no backup seat fits the rules.'}
+          {backup ? ` Seat held: ${backup.name}.` : ' No seat held.'}
         </p>
         <div className="buttons two">
           <Btn className="soft" loading={busy === 'signal'} disabled={locked || !s.signals_left || !!s.disruption}
@@ -650,7 +718,9 @@ function BackupsPage() {
       <section className="panel">
         <div className="panel-head"><h2><Icon name="shield" size={15} /> Autonomous backup reservations</h2></div>
         {s.holds.length === 0
-          ? <Empty icon="shield" title="No backups yet" text="The engine holds a backup seat once the failure chance crosses the 35% trigger." />
+          ? <Empty icon="shield" title="No backups yet" text={s.rule.maths
+            ? `Reroute holds a seat when chance × money lost if we wait beats the worst-case cancel cost. Now: ${s.rule.maths} → ${s.rule.decision}.`
+            : 'No backup seat fits the rules.'} />
           : s.holds.map((h) => <BackupCard key={h.id + h.status} hold={h} />)}
       </section>
       <div className="stack">
@@ -670,16 +740,17 @@ function BackupsPage() {
 }
 
 function SimulatorPage() {
-  const { busy, locked, disrupt, reset } = useR()
+  const { s, busy, locked, disrupt, reset } = useR()
   return (
     <>
+      {s.disruption && <p className="muted-text">One disruption per run. Reset the replay to try another scenario.</p>}
       <div className="scenarios">
         {SCENARIOS.map((c) => (
           <section className="panel scenario" key={c.label}>
             <span className={'kpi-ic ' + c.tone}><Icon name={c.icon} size={17} /></span>
             <h3>{c.label}</h3>
             <p className="muted-text">{c.text}</p>
-            <Btn className="soft" loading={busy === c.label} disabled={locked} onClick={() => disrupt(c.body, c.label)}>
+            <Btn className="soft" loading={busy === c.label} disabled={locked || !!s.disruption} onClick={() => disrupt(c.body, c.label)}>
               Run scenario
             </Btn>
           </section>
@@ -790,7 +861,7 @@ function Shell() {
   const held = s.holds.filter((h) => h.status === 'held').length
   const badge = {
     '/plans': phase === 'analyzing' ? '…' : s.plans.length || null,
-    '/risk': s.chance >= TRIGGER ? '!' : null,
+    '/risk': riskHot(s) ? '!' : null,
     '/backups': held || null,
   }
 

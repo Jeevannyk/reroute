@@ -1,5 +1,5 @@
 {
-  "_note": "Pretend search results. Fixed rides have start/end. Taxis have a duration and leave when you want. sells_out_if_cancelled: the seat is gone once that booking is cancelled (everyone rushes for it), unless Reroute already holds it.",
+  "_note": "Pretend search results. Fixed rides have start/end. Taxis have a duration and leave when you want. Hotels: start = latest check-in, end = checkout. sells_out_if_cancelled: the seat is gone once that booking is cancelled (everyone rushes for it), unless Reroute already holds it.",
   "options": [
     {"id": "F2", "type": "flight", "name": "Later flight Mangaluru → Bengaluru",
      "from": "Mangaluru", "to": "Bengaluru Airport", "start": "D1T21:10", "end": "D1T22:15",
@@ -7,14 +7,17 @@
     {"id": "F3", "type": "flight", "name": "Morning flight Mangaluru → Bengaluru",
      "from": "Mangaluru", "to": "Bengaluru Airport", "start": "D2T06:10", "end": "D2T07:15",
      "price": 5400, "cancel_fee": 1500, "min_connection": 60},
+    {"id": "TR", "type": "train", "name": "21:20 overnight train Mangaluru → Mysuru",
+     "from": "Mangaluru", "to": "Mysuru", "start": "D1T21:20", "end": "D2T06:10",
+     "price": 750, "cancel_fee": 100, "free_cancel_until": "D1T20:20",
+     "min_connection": 45, "sells_out_if_cancelled": "F1"},
     {"id": "B1", "type": "bus", "name": "21:45 sleeper bus Mangaluru → Mysuru",
      "from": "Mangaluru", "to": "Mysuru", "start": "D1T21:45", "end": "D2T05:30",
-     "price": 950, "cancel_fee": 50, "free_cancel_until": "D1T20:45", "surge_price": 1900,
+     "price": 950, "cancel_fee": 50, "free_cancel_until": "D1T20:45",
      "min_connection": 45, "sells_out_if_cancelled": "F1"},
     {"id": "B2", "type": "bus", "name": "22:30 sleeper bus Mangaluru → Bengaluru",
      "from": "Mangaluru", "to": "Bengaluru", "start": "D1T22:30", "end": "D2T05:45",
-     "price": 1100, "cancel_fee": 300, "surge_price": 2200,
-     "min_connection": 45, "sells_out_if_cancelled": "F1"},
+     "price": 1100, "cancel_fee": 300, "min_connection": 45, "sells_out_if_cancelled": "F1"},
     {"id": "B3", "type": "bus", "name": "23:30 bus Mangaluru → Mysuru",
      "from": "Mangaluru", "to": "Mysuru", "start": "D1T23:30", "end": "D2T07:00",
      "price": 800, "cancel_fee": 100, "min_connection": 45},
@@ -35,6 +38,9 @@
      "price": 4000, "cancel_fee": 0, "min_connection": 20},
     {"id": "H2", "type": "hotel", "name": "24-hour hotel near Bengaluru airport",
      "from": "Bengaluru Airport", "to": "Bengaluru Airport", "start": "D2T03:00", "end": "D2T06:00",
-     "price": 3200, "cancel_fee": 0, "min_connection": 0}
+     "price": 3200, "cancel_fee": 0, "min_connection": 0},
+    {"id": "H3", "type": "hotel", "name": "Budget hotel near Bengaluru station",
+     "from": "Bengaluru", "to": "Bengaluru", "start": "D2T01:00", "end": "D2T06:00",
+     "price": 2200, "cancel_fee": 0, "min_connection": 0}
   ]
 }

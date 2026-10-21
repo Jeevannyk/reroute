@@ -17,6 +17,11 @@ def fmt(minutes):
     return f"D{day + 1} {rest // 60:02d}:{rest % 60:02d}"
 
 
+def say(minutes):
+    """Plain words for people and the AI: 'today 18:30' / 'tomorrow 07:00'."""
+    return ("today " if minutes < 1440 else "tomorrow ") + fmt(minutes)[3:]
+
+
 def gap(minutes):
     hours, mins = divmod(abs(minutes), 60)
     return f"{hours} h {mins} min" if hours else f"{mins} min"

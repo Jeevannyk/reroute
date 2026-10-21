@@ -2,9 +2,11 @@
   "traveller": "Meera",
   "start_place": "Mangaluru",
   "rules": {
-    "must_arrive": {"place": "Mysuru", "by": "D2T10:30"},
+    "goal": "Mysuru",
+    "reach_tour_by": "D2T10:30",
     "extra_spend_cap": 5000,
     "no_road_after": "23:00",
+    "allow_night_road": false,
     "hold_budget": 5000,
     "max_undo_cost": 200
   },
@@ -15,7 +17,7 @@
     {"id": "C1", "type": "cab", "name": "Cab, Bengaluru airport → hotel",
      "from": "Bengaluru Airport", "to": "Bengaluru", "start": "D1T20:30", "end": "D1T21:45",
      "price": 900, "cancel_fee": 100, "no_show_fee": 400, "depends_on": ["F1"], "min_connection": 25},
-    {"id": "H1", "type": "hotel", "name": "Hotel near Majestic (check-in until 23:00)",
+    {"id": "H1", "type": "hotel", "name": "Hotel near Majestic, check-in until 23:00",
      "from": "Bengaluru", "to": "Bengaluru", "start": "D1T23:00", "end": "D2T06:00",
      "price": 2800, "cancel_fee": 1400, "no_show_fee": 2800, "depends_on": ["C1"], "min_connection": 0},
     {"id": "T1", "type": "train", "name": "Train Bengaluru → Mysuru",

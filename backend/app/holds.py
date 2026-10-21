@@ -1,7 +1,10 @@
 """Chance of failure from warning signs, and the backup rule.
 
 Hold a backup when:  chance it breaks × money lost if we wait  >  cost to cancel the backup
-Plain code decides. The AI never spends money.
+
+"Money lost if we wait" comes from our own planner: what the best plan costs if the flight is
+cancelled and the seat has sold out, minus what it costs if we hold the seat. Plain code decides;
+the AI never spends money.
 """
 import math
 
@@ -15,12 +18,30 @@ def chance(base, weights):
     return 1 / (1 + math.exp(-logit))
 
 
-def pick_backup(trip, options, target, now):
-    """The backup is the sell-out seat used by the best plan if `target` were cancelled right now."""
+def _cancel(target):
+    return {"type": "cancel", "booking_id": target, "delay_min": 0}
+
+
+def best_money(trip, options, target, now, held_ids):
+    """Rupees the best acceptable plan really costs if `target` is cancelled: extra spend plus the
+    tour fee if the tour is missed. Night road plans don't count unless the traveller allows them.
+    With no acceptable plan, she loses every booking that breaks."""
+    rules = trip["rules"]
+    plans = make_plans(trip, options, _cancel(target), now, held_ids, top=None)
+    ok = [p["money"] for p in plans if not p["night"] or rules["allow_night_road"]]
+    if ok:
+        return min(ok)
+    rows = check(trip["bookings"], _cancel(target))
+    return sum(b["no_show_fee"] for b in trip["bookings"] if rows[b["id"]]["status"] == "broken")
+
+
+def pick_backup(trip, options, target, now, skip=()):
+    """The backup is the sell-out seat used by the best rule-keeping plan if `target` were cancelled now."""
     limit = trip["rules"]["max_undo_cost"]
     eligible = {o["id"] for o in options
-                if o.get("sells_out_if_cancelled") == target and o["cancel_fee"] <= limit}
-    for plan in make_plans(trip, options, {"type": "cancel", "booking_id": target}, now, eligible):
+                if o.get("sells_out_if_cancelled") == target and o["cancel_fee"] <= limit
+                and o["id"] not in skip and to_min(o["start"]) > now}
+    for plan in make_plans(trip, options, _cancel(target), now, eligible, top=None):
         if plan["violations"]:
             break
         for leg in plan["legs"]:
@@ -29,11 +50,11 @@ def pick_backup(trip, options, target, now):
     return None
 
 
-def loss_if_wait(trip, target, option):
-    """Fees on the bookings that would break, plus how much the backup costs once the rush starts."""
-    rows = check(trip["bookings"], {"type": "cancel", "booking_id": target})
-    fees = sum(b["no_show_fee"] for b in trip["bookings"] if rows[b["id"]]["status"] == "broken")
-    return fees + option["surge_price"] - option["price"]
+def loss_if_wait(trip, options, target, option, now):
+    """Returns (loss, cost without the backup, cost with it)."""
+    without = best_money(trip, options, target, now, frozenset())
+    with_it = best_money(trip, options, target, now, {option["id"]})
+    return without - with_it, without, with_it
 
 
 def should_hold(p, loss, undo_cost):
@@ -41,27 +62,36 @@ def should_hold(p, loss, undo_cost):
 
 
 def undo_cost(hold, now):
-    """Free before the free-cancel time, else the cancellation fee."""
-    return 0 if now <= hold["free_cancel_until"] else hold["cancel_fee"]
+    """Free before the free-cancel time (if the seat has one), else the cancellation fee."""
+    free_until = hold["free_cancel_until"]
+    return 0 if free_until is not None and now <= free_until else hold["cancel_fee"]
 
 
-def consider(trip, options, target, p, now, active_holds):
-    """Check the rule and both limits. Returns (option to hold or None, explanation)."""
-    option = pick_backup(trip, options, target, now)
+def consider(trip, options, target, p, now, holds, skip=()):
+    """Check the rule and both limits. Returns (option to hold or None, explanation, the rule's numbers for the screen)."""
+    option = pick_backup(trip, options, target, now, skip)
     if not option:
-        return None, "No backup seat fits the rules"
-    loss = loss_if_wait(trip, target, option)
-    maths = f"{p:.0%} × ₹{loss:,} = ₹{p * loss:,.0f} vs ₹{option['cancel_fee']} to cancel"
-    if not should_hold(p, loss, option["cancel_fee"]):
-        return None, f"{maths} → wait"
-    blocked = sum(h["price"] for h in active_holds)
+        return None, "no backup seat fits the rules", {"chance": round(p, 3), "maths": None, "fee": None, "decision": "no seat"}
+    loss, without, with_it = loss_if_wait(trip, options, target, option, now)
+    fee = option["cancel_fee"]  # worst case: the fee after the free-cancel time
+    worth_it = should_hold(p, loss, fee)
+    free = option.get("free_cancel_until")
+    maths = f"{p:.0%} × ₹{loss:,} = ₹{p * loss:,.0f} {'>' if worth_it else '≤'} ₹{fee}"
+    why = (f"if cancelled, best plan without a backup costs ₹{without:,}, with it ₹{with_it:,}, "
+           f"so waiting loses ₹{loss:,}. {maths}, "
+           f"the most cancelling the seat can cost" + (f" (free until {free[-5:]})" if free else ""))
+    rule = {"chance": round(p, 3), "maths": maths, "fee": fee, "decision": "hold" if worth_it else "wait"}
+    if not worth_it:
+        return None, f"{why} → wait", rule
+    blocked = sum(h["price"] for h in holds if h["status"] == "held")
     if blocked + option["price"] > trip["rules"]["hold_budget"]:
-        return None, f"{maths} → rule true, but the hold budget is full"
-    return option, f"{maths} → hold {option['name']}"
+        return None, f"{why} → rule true, but the hold budget is full", {**rule, "decision": "hold budget full"}
+    return option, f"{why} → hold {option['name']}", rule
 
 
-def new_hold(option, number, p):
-    return {"id": f"HOLD{number}", "option_id": option["id"], "name": option["name"],
+def new_hold(option, number, p, target):
+    free = option.get("free_cancel_until")
+    return {"id": f"HOLD{number}", "option_id": option["id"], "name": option["name"], "target": target,
             "price": option["price"], "cancel_fee": option["cancel_fee"],
-            "free_cancel_until": to_min(option["free_cancel_until"]), "status": "held", "lost": 0,
-            "chance_when_held": round(p, 3)}
+            "free_cancel_until": to_min(free) if free else None, "departs": to_min(option["start"]),
+            "status": "held", "lost": 0, "chance_when_held": round(p, 3)}
