@@ -1,5 +1,5 @@
 {
-  "_note": "A prepared replay of warning signs for flight F1. Weights are added in log-odds (see holds.chance).",
+  "_note": "A prepared replay of warning signs for flight F1. Weights are hand-set for the demo and added in log-odds (see holds.chance). Later they would be learned from past flight data.",
   "target": "F1",
   "base_chance": 0.05,
   "signals": [
